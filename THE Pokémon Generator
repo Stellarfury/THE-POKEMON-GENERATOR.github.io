@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>TPG - The Pokémon Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #ffcb05; /* Yellow */
+            --secondary-color: #3d7dca; /* Blue */
+            --dark-bg: #1a1a1a;
+            --light-bg: #2c2c2c;
+            --text-color: #f0f0f0;
+            --grey-text: #888;
+            --success-color: #4CAF50;
+            --danger-color: #d9534f;
+            --gold-accent: #FFD700;
+            --secret-color: #8A2BE2; /* BlueViolet for Secret Rares */
+        }
+
+        /* --- Basic Setup --- */
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--dark-bg); color: var(--text-color); margin: 0; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
+        h1, h2, h3 { font-family: 'Press Start 2P', cursive; color: var(--primary-color); text-shadow: 2px 2px var(--secondary-color); margin-block-start: 0.5em; margin-block-end: 0.5em; }
+
+        /* --- App Layout --- */
+        #app-container { max-width: 800px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; background-image: linear-gradient(to bottom, #232323, #121212); }
+        #app { display: flex; flex-direction: column; height: 100%; opacity: 1; transition: opacity 0.5s; }
+        #app.hidden { opacity: 0; pointer-events: none; }
+        .app-header { text-align: center; padding: 15px; border-bottom: 2px solid #000; background-color: rgba(0,0,0,0.2); }
+        .app-header h1 { font-size: 2rem; margin: 0; }
+        #game-id-display { color: var(--grey-text); font-size: 0.8rem; }
+        #main-content { flex-grow: 1; overflow-y: auto; padding: 20px; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.4s; }
+        .bottom-nav { display: flex; background-color: var(--light-bg); border-top: 2px solid #000; flex-shrink: 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.3); }
+        .nav-btn { flex-grow: 1; padding: 15px 5px; background: none; border: none; color: var(--grey-text); font-size: 0.8rem; font-family: 'Press Start 2P', cursive; cursor: pointer; transition: all 0.2s ease; }
+        .nav-btn.active { color: var(--primary-color); background-color: #333; }
+
+        /* --- Buttons & Inputs --- */
+        button { font-family: 'Press Start 2P', cursive; background-color: var(--primary-color); color: #000; border: 2px solid var(--secondary-color); padding: 12px 20px; margin: 8px; cursor: pointer; font-size: 0.9rem; border-radius: 8px; transition: transform 0.2s, box-shadow 0.2s, filter 0.2s; text-shadow: 1px 1px #000; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.4); filter: brightness(1.1); }
+        button:disabled { background-color: #555; color: #888; border-color: #444; cursor: not-allowed; transform: none; box-shadow: none; text-shadow: none; }
+        button.danger { background-color: var(--danger-color); color: white; border-color: #ac2925; text-shadow: 1px 1px #000; }
+        input[type="text"], input[type="number"], input[type="password"], select { width: 100%; padding: 10px; margin: 8px 0; border-radius: 5px; border: 2px solid var(--secondary-color); background-color: #333; color: var(--text-color); font-size: 1rem; }
+
+        /* --- Home & Register Page --- */
+        #home-page, #register-page { text-align: center; }
+        .game-management { margin: 20px 0; display: flex; flex-wrap: wrap; justify-content: center; }
+        .rules { margin-top: 30px; text-align: left; display: inline-block; background: var(--light-bg); padding: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .rules p { margin: 10px 0; }
+        .register-form { margin: 20px 0; max-width: 400px; margin-left: auto; margin-right: auto;}
+        #player-register-list { margin-top: 20px; }
+        .register-item { display: flex; justify-content: space-between; align-items: center; background-color: var(--light-bg); padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; text-align: left; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .register-item-info { font-size: 0.8rem; }
+        .register-item-info strong { font-size: 1.1rem; color: var(--primary-color); text-shadow: none; }
+        .delete-player-btn { background: var(--danger-color); padding: 8px 12px; font-size: 0.7rem; margin: 0; }
+
+        /* --- Roll Page --- */
+        #roll-page { text-align: center; }
+        #turn-info h2 { font-size: 1.5rem; }
+        #dice-area { margin: 20px 0; min-height: 100px; }
+        #dice-container { display: flex; gap: 15px; justify-content: center; perspective: 1000px; }
+        .dice { width: 50px; height: 50px; position: relative; transform-style: preserve-3d; transition: transform 1s ease-out; }
+        .dice-face { position: absolute; width: 50px; height: 50px; background-color: #fff; border: 2px solid #000; color: #000; font-size: 24px; font-weight: bold; display: flex; justify-content: center; align-items: center; }
+        .d6 .face-1 { transform: rotateY(0deg) translateZ(25px); } .d6 .face-2 { transform: rotateY(90deg) translateZ(25px); } .d6 .face-3 { transform: rotateY(180deg) translateZ(25px); } .d6 .face-4 { transform: rotateY(-90deg) translateZ(25px); } .d6 .face-5 { transform: rotateX(90deg) translateZ(25px); } .d6 .face-6 { transform: rotateX(-90deg) translateZ(25px); }
+        #bonus-dice-container { margin-top: 20px; }
+        .bonus-dice-roll { animation: bonus-pop 0.5s ease; border: 2px solid var(--primary-color); padding: 10px; margin: 10px auto; border-radius: 8px; background: var(--light-bg); max-width: 300px; }
+        #results-container { width: 100%; margin-top: 20px; }
+        #results-title { opacity: 0; transition: opacity 0.5s; font-size: 1.2rem;}
+        #pokemon-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 15px; }
+        .pokemon-card { background-image: linear-gradient(to bottom, #3a3a3a, #2a2a2a); border-radius: 10px; padding: 10px; position: relative; border: 2px solid #444; animation: fadeIn 0.5s; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.1);}
+        .pokemon-card:hover .pokemon-sprite { transform: scale(1.1); }
+        .pokemon-card.shiny { border-color: var(--gold-accent); }
+        .pokemon-card.secret { border-color: var(--secret-color); }
+        .pokemon-card .pokemon-sprite { width: 96px; height: 96px; image-rendering: pixelated; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.5)); transition: transform 0.3s ease; }
+        .pokemon-card.rainbow .pokemon-sprite { animation: rainbow-cycle 4s linear infinite; }
+        .pokemon-card p { margin: 5px 0 0 0; font-size: 0.9rem; text-transform: capitalize; font-weight: bold; color: var(--text-color); text-shadow: 1px 1px 2px #000; }
+        .pokemon-card .rarity-badge { position: absolute; top: 8px; right: 8px; }
+
+        /* --- Rarity Badges & Reveal Animations --- */
+        .rarity-badge { padding: 4px 7px; font-size: 0.6rem; font-weight: bold; font-family: 'Roboto', sans-serif; text-shadow: none; border-radius: 5px; color: #fff; z-index: 2; text-transform: capitalize; }
+        .rarity-badge.legendary { background-color: #a040a0; }
+        .rarity-badge.gmax { background-color: #f08030; }
+        .rarity-badge.shiny { background: linear-gradient(45deg, var(--gold-accent), #F0B400); color: #000; animation: shinyBadge 2s infinite; text-shadow: 0 0 2px rgba(255,255,255,0.5); }
+        .rarity-badge.secret { background-color: var(--secret-color); border: 1px solid #c8a2c8; }
+        .rarity-badge.rainbow { background-image: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet); animation: shinyBadge 2s infinite; color: #000; text-shadow: 0 0 2px rgba(255,255,255,0.5); }
+        .reveal-shiny { animation: shiny-reveal 1.5s ease-out; }
+        .reveal-secret { animation: secret-reveal 1.5s ease-out; }
+        .reveal-rainbow { animation: rainbow-reveal 2s ease-out; }
+
+        /* --- Trophy Case --- */
+        #trophy-case-page h2 { text-align: center; }
+        #trophy-case-player-selector { margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: center; }
+        #trophy-collection { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; max-height: 70vh; overflow-y: auto; padding: 10px; }
+        .trophy-entry { text-align: center; border-radius: 10px; overflow: hidden; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.4); border: 2px solid #555; display: flex; flex-direction: column; justify-content: space-between; }
+        .trophy-sprite-area { padding: 10px; }
+        .trophy-sprite-area img { width: 96px; height: 96px; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+        .trophy-info { background-color: rgba(0,0,0,0.5); padding: 5px; }
+        .trophy-info p { margin: 0; text-transform: capitalize; font-weight: bold; }
+        .trophy-info .trophy-type { font-size: 0.7rem; color: var(--grey-text); font-family: 'Press Start 2P'; }
+        
+        .trophy-entry.type-Shiny { background: radial-gradient(circle, #4a4a4a, #2a2a2a); border-color: var(--gold-accent); }
+        .trophy-entry.type-Secret { background: radial-gradient(circle, #4a2a4a, #2a1a2a); border-color: var(--secret-color); }
+        .trophy-entry.type-Rainbow { border-color: #fff; animation: rainbow-border 4s linear infinite; }
+        .trophy-entry.type-Rainbow .trophy-sprite-area { background: linear-gradient(45deg, rgba(255,0,0,0.1), rgba(0,255,0,0.1), rgba(0,0,255,0.1)); }
+        .trophy-entry .shiny-sprite { filter: hue-rotate(45deg) saturate(1.5) brightness(1.2) drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+        .trophy-entry .rainbow-sprite { animation: rainbow-cycle 4s linear infinite; }
+
+        /* --- Scoreboard --- */
+        #scoreboard-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+        #scoreboard-table th, #scoreboard-table td { padding: 12px 8px; border-bottom: 1px solid var(--light-bg); text-align: center; }
+        #scoreboard-table th { color: var(--primary-color); }
+        #scoreboard-table tbody tr.active-player-row { background-color: #2a2a2a; border-left: 4px solid var(--primary-color); }
+        #scoreboard-table td:nth-child(1) { text-align: left; font-weight: bold; }
+        #scoreboard-table td:nth-child(2) { font-weight: bold; font-size: 1.2rem; }
+
+        /* --- Modals & Animations --- */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
+        .modal.active { display: flex; animation: fadeIn 0.3s; }
+        .modal-content { background-color: var(--light-bg); padding: 25px; border: 2px solid var(--primary-color); border-radius: 15px; width: 90%; max-width: 500px; position: relative; text-align: center; box-shadow: 0 5px 25px rgba(0,0,0,0.5); }
+        .close-btn { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
+        #new-game-player-list { text-align: left; max-height: 50vh; overflow-y: auto; }
+        .player-checkbox-item { display: block; margin: 10px 0; }
+        .player-checkbox-item label { font-size: 1.2rem; cursor: pointer; display: flex; align-items: center;}
+        .player-checkbox-item input { width: 20px; height: 20px; margin-right: 15px; accent-color: var(--primary-color); }
+        
+        #test-panel-page .test-group { margin-bottom: 25px; padding: 15px; border: 1px solid var(--grey-text); border-radius: 8px; text-align: left; }
+        #test-panel-page h3 { margin-top: 0; text-align: center; }
+        #test-panel-page label { display: block; margin-bottom: 5px; color: var(--grey-text); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes shinyGlow { from { box-shadow: 0 0 10px var(--gold-accent); } to { box-shadow: 0 0 25px #ffec8a; } }
+        @keyframes shinyBadge { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+        @keyframes bonus-pop { 0% { transform: scale(0.5); opacity: 0; } 80% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes rainbow-cycle { 0% { filter: hue-rotate(0deg) drop-shadow(0 4px 6px rgba(0,0,0,0.5)); } 100% { filter: hue-rotate(360deg) drop-shadow(0 4px 6px rgba(0,0,0,0.5)); } }
+        @keyframes rainbow-border { 0% { border-color: #ff0000; } 14% { border-color: #ff7f00; } 28% { border-color: #ffff00; } 42% { border-color: #00ff00; } 57% { border-color: #0000ff; } 71% { border-color: #4b0082; } 85% { border-color: #8b00ff; } 100% { border-color: #ff0000; } }
+        @keyframes shiny-reveal { 0% { transform: scale(0.5); box-shadow: 0 0 0px var(--gold-accent); } 50% { transform: scale(1.2); box-shadow: 0 0 50px var(--gold-accent); } 100% { transform: scale(1); box-shadow: none; } }
+        @keyframes secret-reveal { 0% { transform: scale(0.8); filter: brightness(0); } 50% { transform: scale(1.1); filter: brightness(1); box-shadow: 0 0 40px var(--secret-color); } 100% { transform: scale(1); filter: brightness(1); box-shadow: none; } }
+        @keyframes rainbow-reveal { 0% { transform: scale(0.5) rotate(-360deg); filter: saturate(0); } 70% { transform: scale(1.2) rotate(10deg); filter: saturate(2); box-shadow: 0 0 60px #fff; } 100% { transform: scale(1) rotate(0deg); filter: saturate(1.5); box-shadow: none; } }
+
+        @media (max-width: 600px) {
+            .app-header h1 { font-size: 1.5rem; }
+            #main-content { padding: 10px; }
+            button { padding: 10px 15px; font-size: 0.8rem; }
+            .nav-btn { font-size: 0.6rem; }
+            .dice { width: 40px; height: 40px; }
+            .d6 .face-1 { transform: rotateY(0deg) translateZ(20px); } .d6 .face-2 { transform: rotateY(90deg) translateZ(20px); } .d6 .face-3 { transform: rotateY(180deg) translateZ(20px); } .d6 .face-4 { transform: rotateY(-90deg) translateZ(20px); } .d6 .face-5 { transform: rotateX(90deg) translateZ(20px); } .d6 .face-6 { transform: rotateX(-90deg) translateZ(20px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <div id="app" class="hidden">
+            <header class="app-header">
+                <h1>TPG</h1>
+                <div id="game-id-display">No Game Active</div>
+            </header>
+
+            <main id="main-content">
+                <!-- Home Page -->
+                <div id="home-page" class="page">
+                    <h2>Home</h2>
+                    <p>Start a new game or manage your data.</p>
+                    <div class="game-management">
+                        <button id="new-game-btn">Start New Game</button>
+                        <button id="reset-all-btn" class="danger">Reset All Player Data</button>
+                    </div>
+                    <div class="rules">
+                        <h3>How to Play</h3>
+                        <p>• Go to the Register tab to create players.</p>
+                        <p>• Start a new game and select registered players.</p>
+                        <p>• First to <strong>exactly 100 points</strong> wins the round!</p>
+                        <p>• After a win, scores reset and the game continues.</p>
+                    </div>
+                </div>
+                
+                <!-- Register Page -->
+                <div id="register-page" class="page">
+                    <h2>Player Registers</h2>
+                    <div class="register-form">
+                        <input type="text" id="register-name-input" placeholder="Enter new player name...">
+                        <button id="register-player-btn">Register Player</button>
+                    </div>
+                    <div id="player-register-list"></div>
+                </div>
+
+                <!-- Roll Page -->
+                <div id="roll-page" class="page">
+                    <div id="turn-info"><h2 id="current-player-turn"></h2></div>
+                    <div id="dice-area">
+                        <div id="dice-container"></div>
+                        <div id="bonus-dice-container"></div>
+                    </div>
+                    <button id="roll-dice-btn">Roll Dice</button>
+                    <div id="results-container">
+                        <h3 id="results-title"></h3>
+                        <div id="pokemon-results"></div>
+                    </div>
+                </div>
+                
+                <!-- Trophy Case Page -->
+                <div id="trophy-case-page" class="page">
+                    <h2>Lifetime Trophy Case</h2>
+                    <div id="trophy-case-player-selector"></div>
+                    <div id="trophy-collection">
+                        <p>Select a player to view their collection.</p>
+                    </div>
+                </div>
+
+                <!-- Score Page -->
+                <div id="score-page" class="page">
+                    <h2>Scoreboard</h2>
+                    <table id="scoreboard-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Score</th>
+                                <th>Trophies</th>
+                                <th>Wins</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                
+                <!-- Test Panel Page -->
+                <div id="test-panel-page" class="page">
+                    <h2>Developer Panel</h2>
+                    <div id="dev-password-prompt">
+                        <input type="password" id="dev-password-input" placeholder="Enter password...">
+                        <button id="dev-password-submit">Access</button>
+                    </div>
+                    <div id="dev-controls" style="display: none;">
+                        <div class="test-group">
+                            <h3>Change Rarity Chances</h3>
+                            <label>Shiny Chance (e.g., 0.1 for 10%)</label>
+                            <input type="number" id="test-shiny-chance" step="0.0001">
+                            <label>Secret Rare Chance (e.g., 0.1 for 10%)</label>
+                            <input type="number" id="test-secret-chance" step="0.0001">
+                            <label>Rainbow Rare Chance (e.g., 0.1 for 10%)</label>
+                            <input type="number" id="test-rainbow-chance" step="0.00001">
+                            <button id="save-test-chances-btn">Save Chances</button>
+                        </div>
+                        <div class="test-group">
+                            <h3>Force Generate (on Roll screen)</h3>
+                            <button id="force-shiny-btn">Generate Shiny</button>
+                            <button id="force-secret-btn">Generate Secret Rare</button>
+                            <button id="force-rainbow-btn">Generate Rainbow Rare</button>
+                        </div>
+                        <div class="test-group">
+                            <h3>Modify Current Player's Score</h3>
+                            <input type="number" id="test-points-value" placeholder="e.g., 10 or -10" style="width: auto;">
+                            <button id="test-add-points-btn">Add/Sub Points</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <nav class="bottom-nav">
+                <button class="nav-btn" data-page="home-page">Home</button>
+                <button class="nav-btn" data-page="register-page">Register</button>
+                <button class="nav-btn" data-page="roll-page">Roll</button>
+                <button class="nav-btn" data-page="trophy-case-page">Trophies</button>
+                <button class="nav-btn" data-page="score-page">Scores</button>
+                <button class="nav-btn" data-page="test-panel-page">Dev</button>
+            </nav>
+        </div>
+
+        <!-- New Game Modal -->
+        <div id="new-game-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" data-modal="new-game-modal">&times;</span>
+                <h2>Select Players for New Game</h2>
+                <div id="new-game-player-list">
+                    <p>Register players first in the 'Register' tab.</p>
+                </div>
+                <button id="create-game-btn">Start Game With Selected</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- POKEMON & GAME DATA ---
+            const POKEMON_NAMES={1:"Bulbasaur",2:"Ivysaur",3:"Venusaur",4:"Charmander",5:"Charmeleon",6:"Charizard",7:"Squirtle",8:"Wartortle",9:"Blastoise",10:"Caterpie",11:"Metapod",12:"Butterfree",13:"Weedle",14:"Kakuna",15:"Beedrill",16:"Pidgey",17:"Pidgeotto",18:"Pidgeot",19:"Rattata",20:"Raticate",21:"Spearow",22:"Fearow",23:"Ekans",24:"Arbok",25:"Pikachu",26:"Raichu",27:"Sandshrew",28:"Sandslash",29:"Nidoran♀",30:"Nidorina",31:"Nidoqueen",32:"Nidoran♂",33:"Nidorino",34:"Nidoking",35:"Clefairy",36:"Clefable",37:"Vulpix",38:"Ninetales",39:"Jigglypuff",40:"Wigglytuff",41:"Zubat",42:"Golbat",43:"Oddish",44:"Gloom",45:"Vileplume",46:"Paras",47:"Parasect",48:"Venonat",49:"Venomoth",50:"Diglett",51:"Dugtrio",52:"Meowth",53:"Persian",54:"Psyduck",55:"Golduck",56:"Mankey",57:"Primeape",58:"Growlithe",59:"Arcanine",60:"Poliwag",61:"Poliwhirl",62:"Poliwrath",63:"Abra",64:"Kadabra",65:"Alakazam",66:"Machop",67:"Machoke",68:"Machamp",69:"Bellsprout",70:"Weepinbell",71:"Victreebel",72:"Tentacool",73:"Tentacruel",74:"Geodude",75:"Graveler",76:"Golem",77:"Ponyta",78:"Rapidash",79:"Slowpoke",80:"Slowbro",81:"Magnemite",82:"Magneton",83:"Farfetch'd",84:"Doduo",85:"Dodrio",86:"Seel",87:"Dewgong",88:"Grimer",89:"Muk",90:"Shellder",91:"Cloyster",92:"Gastly",93:"Haunter",94:"Gengar",95:"Onix",96:"Drowzee",97:"Hypno",98:"Krabby",99:"Kingler",100:"Voltorb",101:"Electrode",102:"Exeggcute",103:"Exeggutor",104:"Cubone",105:"Marowak",106:"Hitmonlee",107:"Hitmonchan",108:"Lickitung",109:"Koffing",110:"Weezing",111:"Rhyhorn",112:"Rhydon",113:"Chansey",114:"Tangela",115:"Kangaskhan",116:"Horsea",117:"Seadra",118:"Goldeen",119:"Seaking",120:"Staryu",121:"Starmie",122:"Mr. Mime",123:"Scyther",124:"Jynx",125:"Electabuzz",126:"Magmar",127:"Pinsir",128:"Tauros",129:"Magikarp",130:"Gyarados",131:"Lapras",132:"Ditto",133:"Eevee",134:"Vaporeon",135:"Jolteon",136:"Flareon",137:"Porygon",138:"Omanyte",139:"Omastar",140:"Kabuto",141:"Kabutops",142:"Aerodactyl",143:"Snorlax",144:"Articuno",145:"Zapdos",146:"Moltres",147:"Dratini",148:"Dragonair",149:"Dragonite",150:"Mewtwo",151:"Mew",152:"Chikorita",153:"Bayleef",154:"Meganium",155:"Cyndaquil",156:"Quilava",157:"Typhlosion",158:"Totodile",159:"Croconaw",160:"Feraligatr",161:"Sentret",162:"Furret",163:"Hoothoot",164:"Noctowl",165:"Ledyba",166:"Ledian",167:"Spinarak",168:"Ariados",169:"Crobat",170:"Chinchou",171:"Lanturn",172:"Pichu",173:"Cleffa",174:"Igglybuff",175:"Togepi",176:"Togetic",177:"Natu",178:"Xatu",179:"Mareep",180:"Flaaffy",181:"Ampharos",182:"Bellossom",183:"Marill",184:"Azumarill",185:"Sudowoodo",186:"Politoed",187:"Hoppip",188:"Skiploom",189:"Jumpluff",190:"Aipom",191:"Sunkern",192:"Sunflora",193:"Yanma",194:"Wooper",195:"Quagsire",196:"Espeon",197:"Umbreon",198:"Murkrow",199:"Slowking",200:"Misdreavus",201:"Unown",202:"Wobbuffet",203:"Girafarig",204:"Pineco",205:"Forretress",206:"Dunsparce",207:"Gligar",208:"Steelix",209:"Snubbull",210:"Granbull",211:"Qwilfish",212:"Scizor",213:"Shuckle",214:"Heracross",215:"Sneasel",216:"Teddiursa",217:"Ursaring",218:"Slugma",219:"Magcargo",220:"Swinub",221:"Piloswine",222:"Corsola",223:"Remoraid",224:"Octillery",225:"Delibird",226:"Mantine",227:"Skarmory",228:"Houndour",229:"Houndoom",230:"Kingdra",231:"Phanpy",232:"Donphan",233:"Porygon2",234:"Stantler",235:"Smeargle",236:"Tyrogue",237:"Hitmontop",238:"Smoochum",239:"Elekid",240:"Magby",241:"Miltank",242:"Blissey",243:"Raikou",244:"Entei",245:"Suicune",246:"Larvitar",247:"Pupitar",248:"Tyranitar",249:"Lugia",250:"Ho-Oh",251:"Celebi",252:"Treecko",253:"Grovyle",254:"Sceptile",255:"Torchic",256:"Combusken",257:"Blaziken",258:"Mudkip",259:"Marshtomp",260:"Swampert",261:"Poochyena",262:"Mightyena",263:"Zigzagoon",264:"Linoone",265:"Wurmple",266:"Silcoon",267:"Beautifly",268:"Cascoon",269:"Dustox",270:"Lotad",271:"Lombre",272:"Ludicolo",273:"Seedot",274:"Nuzleaf",275:"Shiftry",276:"Taillow",277:"Swellow",278:"Wingull",279:"Pelipper",280:"Ralts",281:"Kirlia",282:"Gardevoir",283:"Surskit",284:"Masquerain",285:"Shroomish",286:"Breloom",287:"Slakoth",288:"Vigoroth",289:"Slaking",290:"Nincada",291:"Ninjask",292:"Shedinja",293:"Whismur",294:"Loudred",295:"Exploud",296:"Makuhita",297:"Hariyama",298:"Azurill",299:"Nosepass",300:"Skitty",301:"Delcatty",302:"Sableye",303:"Mawile",304:"Aron",305:"Lairon",306:"Aggron",307:"Meditite",308:"Medicham",309:"Electrike",310:"Manectric",311:"Plusle",312:"Minun",313:"Volbeat",314:"Illumise",315:"Roselia",316:"Gulpin",317:"Swalot",318:"Carvanha",319:"Sharpedo",320:"Wailmer",321:"Wailord",322:"Numel",323:"Camerupt",324:"Torkoal",325:"Spoink",326:"Grumpig",327:"Spinda",328:"Trapinch",329:"Vibrava",330:"Flygon",331:"Cacnea",332:"Cacturne",333:"Swablu",334:"Altaria",335:"Zangoose",336:"Seviper",337:"Lunatone",338:"Solrock",339:"Barboach",340:"Whiscash",341:"Corphish",342:"Crawdaunt",343:"Baltoy",344:"Claydol",345:"Lileep",346:"Cradily",347:"Anorith",348:"Armaldo",349:"Feebas",350:"Milotic",351:"Castform",352:"Kecleon",353:"Shuppet",354:"Banette",355:"Duskull",356:"Dusclops",357:"Tropius",358:"Chimecho",359:"Absol",360:"Wynaut",361:"Snorunt",362:"Glalie",363:"Spheal",364:"Sealeo",365:"Walrein",366:"Clamperl",367:"Huntail",368:"Gorebyss",369:"Relicanth",370:"Luvdisc",371:"Bagon",372:"Shelgon",373:"Salamence",374:"Beldum",375:"Metang",376:"Metagross",377:"Regirock",378:"Regice",379:"Registeel",380:"Latias",381:"Latios",382:"Kyogre",383:"Groudon",384:"Rayquaza",385:"Jirachi",386:"Deoxys"};
+            const OFFICIAL_POKEMON_COUNT = 1010;
+            const LEGENDARY_IDS = [144,145,146,150,151,243,244,245,249,250,251,377,378,379,380,381,382,383,384,385,386,480,481,482,483,484,485,486,487,488,489,490,491,492,493,494,638,639,640,641,642,643,644,645,646,647,648,649,716,717,718,719,720,721,772,773,785,786,787,788,789,790,791,792,793,794,795,796,797,798,799,800,801,802,803,804,805,806,807,888,889,890,891,892,893,894,895,896,897,898,905,1001,1002,1003,1004,1007,1008,1010];
+            const GIGANTAMAX_IDS = [3,6,9,12,25,52,68,94,99,131,133,143,569,809,812,815,818,823,826,834,839,841,842,844,849,851,869,879,892];
+            
+            let SHINY_CHANCE = 1 / 4096;
+            let SECRET_RARE_CHANCE = 1 / 10000;
+            let RAINBOW_RARE_CHANCE = (1 / 10000) * (1 / 15);
+            
+            const RAINBOW_RARE_ID = 10015;
+            const SECRET_RARE_POKEMON = [
+                { id: 10001, name: 'Spectreon', spriteId: 136 },{ id: 10002, name: 'Geomight', spriteId: 76 },{ id: 10003, name: 'Acrillix', spriteId: 142 },{ id: 10004, name: 'Chronomew', spriteId: 151 },{ id: 10005, name: 'Cryodon', spriteId: 131 },{ id: 10006, name: 'Volcalisk', spriteId: 146 },{ id: 10007, name: 'Gravix', spriteId: 95 },{ id: 10008, name: 'Toximight', spriteId: 110 },{ id: 10009, name: 'Zephyrion', spriteId: 149 },{ id: 10010, name: 'Solaking', spriteId: 197 },{ id: 10011, name: 'Lunabelle', spriteId: 196 },{ id: 10012, name: 'Florius', spriteId: 251 },{ id: 10013, name: 'Gaiarth', spriteId: 383 },{ id: 10014, name: 'Tempestus', spriteId: 384 },{ id: RAINBOW_RARE_ID, name: 'Prismatis', spriteId: 493 },
+            ];
+
+            let registeredPlayers = [];
+            let playerStats = {};     
+            let playerTrophies = {};   
+            let currentGame = null;
+            let isDevMode = false;
+
+            const appEl = document.getElementById('app');
+            const gameIdDisplay = document.getElementById('game-id-display');
+            const newGameModal = document.getElementById('new-game-modal');
+            const rollDiceBtn = document.getElementById('roll-dice-btn');
+            const diceContainer = document.getElementById('dice-container');
+            const bonusDiceContainer = document.getElementById('bonus-dice-container');
+            const pokemonResultsEl = document.getElementById('pokemon-results');
+            const resultsTitleEl = document.getElementById('results-title');
+            const currentPlayerTurnEl = document.getElementById('current-player-turn');
+            const registerNameInput = document.getElementById('register-name-input');
+
+            function init() {
+                loadAllData();
+                setupEventListeners();
+                updateRegisterList();
+                showPage('home-page');
+                appEl.classList.remove('hidden');
+                createDiceHtml();
+            }
+
+            function setupEventListeners() {
+                document.querySelector('.bottom-nav').addEventListener('click', (e) => {
+                    const pageId = e.target.dataset.page;
+                    if (pageId) {
+                        if (pageId === 'test-panel-page' && !isDevMode) {
+                            document.getElementById('dev-password-prompt').style.display = 'block';
+                            document.getElementById('dev-controls').style.display = 'none';
+                        }
+                        if (!currentGame && ['roll-page', 'score-page'].includes(pageId)) {
+                            alert("Please start a new game from the Home tab.");
+                            return;
+                        }
+                        showPage(pageId);
+                    }
+                });
+
+                document.querySelector('.modal .close-btn').addEventListener('click', () => newGameModal.classList.remove('active'));
+                document.getElementById('new-game-btn').addEventListener('click', openNewGameModal);
+                document.getElementById('reset-all-btn').addEventListener('click', resetAllPlayerData);
+                document.getElementById('register-player-btn').addEventListener('click', registerPlayer);
+                document.getElementById('player-register-list').addEventListener('click', (e) => {
+                    if(e.target.classList.contains('delete-player-btn')) deletePlayer(e.target.dataset.name);
+                });
+                document.getElementById('create-game-btn').addEventListener('click', createNewGame);
+                rollDiceBtn.addEventListener('click', handleTurn);
+                document.getElementById('trophy-case-player-selector').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('player-select-btn')) {
+                        const playerName = e.target.dataset.name;
+                        document.querySelectorAll('#trophy-case-player-selector .player-select-btn').forEach(btn => btn.classList.remove('active'));
+                        e.target.classList.add('active');
+                        displayTrophyCaseFor(playerName);
+                    }
+                });
+                
+                document.getElementById('dev-password-submit').addEventListener('click', checkDevPassword);
+                document.getElementById('save-test-chances-btn').addEventListener('click', saveTestChances);
+                document.getElementById('force-shiny-btn').addEventListener('click', () => forceGenerate('shiny'));
+                document.getElementById('force-secret-btn').addEventListener('click', () => forceGenerate('secret'));
+                document.getElementById('force-rainbow-btn').addEventListener('click', () => forceGenerate('rainbow'));
+                document.getElementById('test-add-points-btn').addEventListener('click', addTestPoints);
+            }
+
+            function loadAllData() { 
+                registeredPlayers = JSON.parse(localStorage.getItem('TPG_registeredPlayers')) || [];
+                playerStats = JSON.parse(localStorage.getItem('TPG_playerStats')) || {};
+                playerTrophies = JSON.parse(localStorage.getItem('TPG_playerTrophies')) || {};
+            }
+            
+            function resetAllPlayerData() {
+                if (confirm("DANGER: This will delete ALL registered players, win records, and trophy collections permanently. Are you sure?")) {
+                    registeredPlayers = []; playerStats = {}; playerTrophies = {};
+                    localStorage.removeItem('TPG_registeredPlayers');
+                    localStorage.removeItem('TPG_playerStats');
+                    localStorage.removeItem('TPG_playerTrophies');
+                    alert("All player data has been reset.");
+                    updateRegisterList();
+                    if(currentGame) {
+                        currentGame = null;
+                        gameIdDisplay.textContent = 'No Game Active';
+                        showPage('home-page');
+                    }
+                    updateAllUI();
+                }
+            }
+            
+            function registerPlayer() {
+                const name = registerNameInput.value.trim();
+                if (!name) { alert("Player name cannot be empty."); return; }
+                if (registeredPlayers.some(p => p.toLowerCase() === name.toLowerCase())) { alert("A player with this name is already registered."); return; }
+                registeredPlayers.push(name);
+                localStorage.setItem('TPG_registeredPlayers', JSON.stringify(registeredPlayers));
+                registerNameInput.value = '';
+                updateRegisterList();
+            }
+
+            function deletePlayer(name) {
+                if (confirm(`Are you sure you want to delete ${name}? Their wins and trophies will also be deleted permanently.`)) {
+                    registeredPlayers = registeredPlayers.filter(p => p !== name);
+                    delete playerStats[name]; delete playerTrophies[name];
+                    localStorage.setItem('TPG_registeredPlayers', JSON.stringify(registeredPlayers));
+                    localStorage.setItem('TPG_playerStats', JSON.stringify(playerStats));
+                    localStorage.setItem('TPG_playerTrophies', JSON.stringify(playerTrophies));
+                    updateRegisterList();
+                }
+            }
+            
+            function updateRegisterList() {
+                const listEl = document.getElementById('player-register-list');
+                listEl.innerHTML = '';
+                if (registeredPlayers.length === 0) { listEl.innerHTML = '<p>No players registered yet.</p>'; return; }
+                registeredPlayers.forEach(name => {
+                    const wins = playerStats[name] || 0;
+                    const trophies = playerTrophies[name]?.length || 0;
+                    listEl.innerHTML += `<div class="register-item"><div><strong>${name}</strong><div class="register-item-info">Wins: ${wins} | Trophies: ${trophies}</div></div><button class="delete-player-btn" data-name="${name}">Delete</button></div>`;
+                });
+            }
+
+            function openNewGameModal() {
+                const playerListEl = document.getElementById('new-game-player-list');
+                playerListEl.innerHTML = '';
+                if (registeredPlayers.length < 2) {
+                    playerListEl.innerHTML = '<p>You need to register at least 2 players to start a game.</p>';
+                    return;
+                }
+                registeredPlayers.forEach(name => {
+                    playerListEl.innerHTML += `<div class="player-checkbox-item"><label><input type="checkbox" name="player" value="${name}"><span>${name}</span></label></div>`;
+                });
+                newGameModal.classList.add('active');
+            }
+
+            function createNewGame() {
+                const selectedPlayers = Array.from(document.querySelectorAll('#new-game-player-list input:checked')).map(cb => cb.value);
+                if (selectedPlayers.length < 2) { alert("Please select at least 2 players for the game."); return; }
+                currentGame = {
+                    players: selectedPlayers.map(name => ({ name, score: 0, milestones: { 25: false, 50: false, 75: false }})),
+                    currentPlayerIndex: 0,
+                };
+                gameIdDisplay.textContent = `Game in Progress`;
+                newGameModal.classList.remove('active');
+                showPage('roll-page');
+                updateAllUI();
+            }
+
+            function showPage(pageId) {
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.getElementById(pageId).classList.add('active');
+                document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.page === pageId));
+                if (pageId === 'score-page') updateScoreboard();
+                if (pageId === 'trophy-case-page') updateTrophyCaseSelector();
+                if (pageId === 'register-page') updateRegisterList();
+            }
+
+            function updateAllUI() {
+                updateTurnInfo();
+                updateScoreboard();
+                updateTrophyCaseSelector();
+            }
+
+            function updateTurnInfo() {
+                if (!currentGame) { currentPlayerTurnEl.textContent = 'Start a New Game'; return; }
+                const player = currentGame.players[currentGame.currentPlayerIndex];
+                if (player) currentPlayerTurnEl.textContent = `${player.name}'s Turn!`;
+            }
+
+            function createDiceHtml() {
+                diceContainer.innerHTML = '';
+                for (let i = 0; i < 5; i++) diceContainer.innerHTML += `<div class="dice d6"><div class="dice-face face-1">1</div><div class="dice-face face-2">2</div><div class="dice-face face-3">3</div><div class="dice-face face-4">4</div><div class="dice-face face-5">5</div><div class="dice-face face-6">6</div></div>`;
+            }
+
+            function rollNormalDice() {
+                let total = 0;
+                document.querySelectorAll('.dice.d6').forEach(dice => {
+                    const roll = Math.floor(Math.random() * 6) + 1; total += roll;
+                    let transform = '';
+                    switch (roll) { case 1: transform = 'rotateY(0deg)'; break; case 2: transform = 'rotateY(-90deg)'; break; case 3: transform = 'rotateY(-180deg)'; break; case 4: transform = 'rotateY(90deg)'; break; case 5: transform = 'rotateX(90deg)'; break; case 6: transform = 'rotateX(-90deg)'; break; }
+                    dice.style.transform = `translateZ(-25px) ${transform}`;
+                });
+                return total;
+            }
+            
+            function rollBonusDice(sides) {
+                const roll = Math.floor(Math.random() * sides) + 1;
+                bonusDiceContainer.innerHTML += `<div class="bonus-dice-roll">Bonus D${sides} Roll: <strong>${roll}</strong></div>`;
+                return roll;
+            }
+            
+            async function handleTurn() {
+                rollDiceBtn.disabled = true;
+                pokemonResultsEl.innerHTML = '';
+                bonusDiceContainer.innerHTML = '';
+                resultsTitleEl.style.opacity = '0';
+                
+                const player = currentGame.players[currentGame.currentPlayerIndex];
+                let totalPokemons = rollNormalDice();
+                
+                await new Promise(resolve => setTimeout(resolve, 1200));
+                
+                if (player.score >= 25 && !player.milestones[25]) { totalPokemons += rollBonusDice(12); player.milestones[25] = true; }
+                if (player.score >= 50 && !player.milestones[50]) { totalPokemons += rollBonusDice(20); player.milestones[50] = true; }
+                if (player.score >= 75 && !player.milestones[75]) { totalPokemons += rollBonusDice(12); player.milestones[75] = true; }
+                
+                resultsTitleEl.textContent = `Generating ${totalPokemons} Pokémon...`;
+                resultsTitleEl.style.opacity = '1';
+
+                let turnPoints = 0;
+                for (let i = 0; i < totalPokemons; i++) {
+                    const pokemonData = generatePokemon();
+                    turnPoints += pokemonData.points;
+                    await displayPokemon(pokemonData);
+                }
+
+                const newPotentialScore = player.score + turnPoints;
+
+                if (newPotentialScore > 100) {
+                    resultsTitleEl.innerHTML = `BUST! <br> Score would be ${newPotentialScore}. No points this turn.`;
+                } else {
+                    player.score = newPotentialScore;
+                    resultsTitleEl.innerHTML = `Scored ${turnPoints} points!`;
+                }
+                resultsTitleEl.style.opacity = '1';
+                
+                updateScoreboard();
+
+                if (player.score === 100) {
+                    await handleWinAndReset(player);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                nextTurn();
+                rollDiceBtn.disabled = false;
+                updateTurnInfo();
+            }
+            
+            async function handleWinAndReset(winner) {
+                resultsTitleEl.innerHTML = `${winner.name} WINS THE ROUND!`;
+                playerStats[winner.name] = (playerStats[winner.name] || 0) + 1;
+                localStorage.setItem('TPG_playerStats', JSON.stringify(playerStats));
+
+                await new Promise(resolve => setTimeout(resolve, 2500));
+
+                currentGame.players.forEach(p => {
+                    p.score = 0;
+                    p.milestones = { 25: false, 50: false, 75: false };
+                });
+                resultsTitleEl.innerHTML = `Scores reset. Next round!`;
+                updateScoreboard();
+            }
+
+            function nextTurn() {
+                if (!currentGame) return;
+                currentGame.currentPlayerIndex = (currentGame.currentPlayerIndex + 1) % currentGame.players.length;
+            }
+
+            function generatePokemon(forceType = null) {
+                const isRainbowHit = forceType === 'rainbow' || Math.random() < RAINBOW_RARE_CHANCE;
+                const isSecretHit = forceType === 'secret' || isRainbowHit || Math.random() < SECRET_RARE_CHANCE;
+                const playerName = currentGame.players[currentGame.currentPlayerIndex].name;
+                let pokemon = {};
+
+                if(isSecretHit) {
+                    let secretPokemonData = isRainbowHit
+                        ? SECRET_RARE_POKEMON.find(p => p.id === RAINBOW_RARE_ID)
+                        : SECRET_RARE_POKEMON.filter(p => p.id !== RAINBOW_RARE_ID)[Math.floor(Math.random() * (SECRET_RARE_POKEMON.length - 1))];
+                    
+                    pokemon = { ...secretPokemonData, isSecret: true, isRainbow: secretPokemonData.id === RAINBOW_RARE_ID, isShiny: false, isGmax: false };
+                    pokemon.isLegendary = LEGENDARY_IDS.includes(pokemon.spriteId);
+                    pokemon.points = pokemon.isRainbow ? 15 : 10;
+                    if(pokemon.isLegendary) pokemon.points += 1;
+                    const trophyType = pokemon.isRainbow ? 'Rainbow' : 'Secret';
+                    if (!playerTrophies[playerName]) playerTrophies[playerName] = [];
+                    if (!playerTrophies[playerName].some(p => p.id === pokemon.id)) {
+                         playerTrophies[playerName].push({ ...pokemon, type: trophyType });
+                         localStorage.setItem('TPG_playerTrophies', JSON.stringify(playerTrophies));
+                    }
+                } else {
+                    const id = Math.floor(Math.random() * OFFICIAL_POKEMON_COUNT) + 1;
+                    const name = POKEMON_NAMES[id] || `Pokemon #${id}`;
+                    const isShiny = forceType === 'shiny' || Math.random() < SHINY_CHANCE;
+                    pokemon = { id, spriteId: id, name: name, isShiny: isShiny, isLegendary: LEGENDARY_IDS.includes(id), isGmax: GIGANTAMAX_IDS.includes(id), isSecret: false, isRainbow: false };
+                    pokemon.points = 0;
+                    if(pokemon.isShiny) pokemon.points += 5;
+                    if(pokemon.isLegendary) pokemon.points += 1;
+                    if(pokemon.isGmax) pokemon.points += 2;
+                    if (pokemon.isShiny) {
+                        if (!playerTrophies[playerName]) playerTrophies[playerName] = [];
+                        playerTrophies[playerName].push({ ...pokemon, type: 'Shiny' });
+                        localStorage.setItem('TPG_playerTrophies', JSON.stringify(playerTrophies));
+                    }
+                }
+                
+                const rarities = [];
+                if (pokemon.isRainbow) rarities.push('Rainbow'); else if (pokemon.isSecret) rarities.push('Secret');
+                if (pokemon.isShiny) rarities.push('Shiny');
+                if (pokemon.isGmax) rarities.push('G-Max');
+                if (pokemon.isLegendary) rarities.push('Legendary');
+                pokemon.rarityText = rarities.join(' & ');
+                return pokemon;
+            }
+            
+            async function displayPokemon(pokemon) {
+                const card = document.createElement('div');
+                card.className = `pokemon-card ${pokemon.isShiny ? 'shiny' : ''} ${pokemon.isSecret ? 'secret' : ''} ${pokemon.isRainbow ? 'rainbow' : ''}`;
+                
+                let revealClass = '';
+                if (pokemon.isRainbow) revealClass = 'reveal-rainbow';
+                else if (pokemon.isSecret) revealClass = 'reveal-secret';
+                else if (pokemon.isShiny) revealClass = 'reveal-shiny';
+
+                let badgeClass = '';
+                if (pokemon.isRainbow) badgeClass = 'rainbow'; else if(pokemon.isSecret) badgeClass = 'secret'; else if (pokemon.isShiny) badgeClass = 'shiny'; else if (pokemon.isGmax) badgeClass = 'gmax'; else if (pokemon.isLegendary) badgeClass = 'legendary';
+                
+                const badgeHTML = pokemon.rarityText ? `<span class="rarity-badge ${badgeClass}">${pokemon.rarityText}</span>` : '';
+                card.innerHTML = `<img class="pokemon-sprite" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.spriteId}.png" alt="${pokemon.name}" loading="lazy"><p>${pokemon.name}</p>${badgeHTML}`;
+                pokemonResultsEl.appendChild(card);
+                
+                if(revealClass) {
+                    card.classList.add(revealClass);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    card.classList.remove(revealClass);
+                }
+            }
+
+            function updateScoreboard() {
+                const tbody = document.querySelector('#scoreboard-table tbody');
+                tbody.innerHTML = '';
+                if (!currentGame) { tbody.innerHTML = '<tr><td colspan="4">No active game.</td></tr>'; return; }
+                currentGame.players.forEach((player, index) => {
+                    const row = document.createElement('tr');
+                    if(index === currentGame.currentPlayerIndex) row.className = 'active-player-row';
+                    const wins = playerStats[player.name] || 0;
+                    const trophyCount = playerTrophies[player.name]?.length || 0;
+                    row.innerHTML = `<td>${player.name}</td><td>${player.score}</td><td>${trophyCount}</td><td>${wins}</td>`;
+                    tbody.appendChild(row);
+                });
+            }
+
+            function updateTrophyCaseSelector() {
+                const selector = document.getElementById('trophy-case-player-selector');
+                selector.innerHTML = '';
+                if(registeredPlayers.length === 0) { document.getElementById('trophy-collection').innerHTML = '<p>Register players to see their trophy cases.</p>'; return; }
+                registeredPlayers.forEach((name) => selector.innerHTML += `<button class="player-select-btn" data-name="${name}">${name}</button>`);
+            }
+
+            function displayTrophyCaseFor(playerName) {
+                const collectionEl = document.getElementById('trophy-collection');
+                collectionEl.innerHTML = '';
+                const trophies = playerTrophies[playerName] || [];
+                if (trophies.length === 0) { collectionEl.innerHTML = '<p>No trophies found yet!</p>'; return; }
+                trophies.sort((a,b) => a.id - b.id).forEach(trophy => {
+                    collectionEl.innerHTML += renderTrophy(trophy);
+                });
+            }
+            
+            function renderTrophy(trophy) {
+                let spriteClass = 'pokemon-sprite';
+                if (trophy.type === 'Shiny') spriteClass += ' shiny-sprite';
+                if (trophy.type === 'Rainbow') spriteClass += ' rainbow-sprite';
+                return `<div class="trophy-entry type-${trophy.type}">
+                            <div class="trophy-sprite-area">
+                                <img class="${spriteClass}" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${trophy.spriteId}.png" alt="${trophy.name}">
+                            </div>
+                            <div class="trophy-info">
+                                <p>${trophy.name}</p>
+                                <p class="trophy-type">${trophy.type}</p>
+                            </div>
+                        </div>`;
+            }
+            
+            function checkDevPassword() {
+                const input = document.getElementById('dev-password-input');
+                if (input.value === 'developer123') {
+                    isDevMode = true;
+                    document.getElementById('dev-password-prompt').style.display = 'none';
+                    document.getElementById('dev-controls').style.display = 'block';
+                    input.value = '';
+                    // Populate inputs with current values
+                    document.getElementById('test-shiny-chance').value = SHINY_CHANCE;
+                    document.getElementById('test-secret-chance').value = SECRET_RARE_CHANCE;
+                    document.getElementById('test-rainbow-chance').value = RAINBOW_RARE_CHANCE;
+                } else {
+                    alert('Incorrect password.');
+                }
+            }
+
+            function saveTestChances() {
+                const newShiny = parseFloat(document.getElementById('test-shiny-chance').value);
+                const newSecret = parseFloat(document.getElementById('test-secret-chance').value);
+                const newRainbow = parseFloat(document.getElementById('test-rainbow-chance').value);
+                if(!isNaN(newShiny) && newShiny > 0) SHINY_CHANCE = newShiny;
+                if(!isNaN(newSecret) && newSecret > 0) SECRET_RARE_CHANCE = newSecret;
+                if(!isNaN(newRainbow) && newRainbow > 0) RAINBOW_RARE_CHANCE = newRainbow;
+                alert(`Test chances updated!\nShiny: ${SHINY_CHANCE}\nSecret: ${SECRET_RARE_CHANCE}\nRainbow: ${RAINBOW_RARE_CHANCE}`);
+            }
+
+            function forceGenerate(type) {
+                if (!currentGame) { alert("Start a game first!"); return; }
+                pokemonResultsEl.innerHTML = '';
+                const forcedPokemon = generatePokemon(type);
+                displayPokemon(forcedPokemon);
+            }
+            
+            function addTestPoints() {
+                if (!currentGame) { alert("Start a game first!"); return; }
+                const pointsToAdd = parseInt(document.getElementById('test-points-value').value);
+                if (isNaN(pointsToAdd)) return;
+                const player = currentGame.players[currentGame.currentPlayerIndex];
+                player.score += pointsToAdd;
+                updateScoreboard();
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
